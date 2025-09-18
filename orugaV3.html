@@ -423,15 +423,19 @@
 
     // ===== Drag mode / magnet =====
     UI.board.addEventListener('pointerdown', (e)=>{
+      if(state.mode!=='drag') return;
       if(e.pointerType==='mouse' && e.button!==0) return;
       state.dragging = true; UI.board.setPointerCapture?.(e.pointerId);
       armIdle();
       checkMagnet(e);
     });
     UI.board.addEventListener('pointermove', (e)=>{
-      if(!state.dragging) return; checkMagnet(e);
+      if(state.mode!=='drag' || !state.dragging) return;
+      checkMagnet(e);
     });
-    UI.board.addEventListener('pointerup', ()=>{ state.dragging=false });
+    UI.board.addEventListener('pointerup', ()=>{
+      if(state.dragging) state.dragging=false;
+    });
 
     function checkMagnet(e){
       if(state.mode!=='drag') return;
