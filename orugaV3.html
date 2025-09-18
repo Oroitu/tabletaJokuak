@@ -300,13 +300,15 @@
     });
 
     // ===== Reset (long press) =====
-    let resetHold=null;
+    let resetVibeTimer=null;
     UI.btnReset.addEventListener('pointerdown', ()=>{
-      clearTimeout(resetHold);
-      resetHold = setTimeout(()=>{resetRun(); vib(40)}, 700);
+      clearTimeout(resetVibeTimer);
+      resetVibeTimer = setTimeout(()=> vib(40), 700);
     });
-    UI.btnReset.addEventListener('pointerup', ()=> clearTimeout(resetHold));
-    UI.btnReset.addEventListener('pointerleave', ()=> clearTimeout(resetHold));
+    UI.btnReset.addEventListener('click', resetRun);
+    ['pointerup','pointerleave','pointercancel'].forEach(ev=>{
+      UI.btnReset.addEventListener(ev, ()=> clearTimeout(resetVibeTimer));
+    });
 
     // ===== Adult sheet (long press on logo) =====
     let brandHold=null;
