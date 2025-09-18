@@ -328,7 +328,7 @@
       state.nodes = [];
       // Place nodes
       placeNodes(state.N);
-      markNext(1);
+      highlightCurrent(1);
       if(full) startTimerIfNeeded();
       armIdle();
       if(state.firstDemo){ demo(); state.firstDemo=false; }
@@ -369,11 +369,12 @@
 
     function nodeById(id){ return state.nodes.find(n=>n.id===id) }
 
-    function markNext(id){
+    function highlightCurrent(id){
+      const currentId = state.doneIds.length ? state.doneIds[state.doneIds.length-1] : (id ?? 1);
       for(const n of state.nodes){ n._el.classList.remove('done'); n._el.removeAttribute('data-state') }
       for(const did of state.doneIds){ nodeById(did)._el.classList.add('done') }
-      const next = nodeById(id);
-      if(next) next._el.setAttribute('data-state','next');
+      const current = nodeById(currentId);
+      if(current) current._el.setAttribute('data-state','next');
     }
 
     function onNodeTap(e){
@@ -400,7 +401,7 @@
       if(state.nextExpected>state.N){
         win();
       }else{
-        markNext(state.nextExpected);
+        highlightCurrent(id);
         armIdle();
       }
     }
@@ -412,7 +413,7 @@
       state.doneIds.pop();
       state.nextExpected = last;
       drawPath();
-      markNext(state.nextExpected);
+      highlightCurrent(last);
       beep(330,70); vib(20);
     }
 
@@ -485,7 +486,7 @@
       speak('Se acabó el tiempo');
       melody([[196,200],[0,60],[164,260]]); vib([40,100,80]);
       // Soft reset of the round state (keep same board)
-      state.doneIds=[]; state.nextExpected=1; drawPath(); markNext(1);
+      state.doneIds=[]; state.nextExpected=1; drawPath(); highlightCurrent(1);
     }
     function endTimer(){ cancelAnimationFrame(state.timer.tick); UI.timerbar.hidden=true; }
 
