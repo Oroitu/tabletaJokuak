@@ -190,6 +190,7 @@
       nextExpected:1,
       doneIds:[],
       dragging:false,
+      dragAnchor:null,
       idleTimer:null,
       prefs:{sound:true,vib:true,timer:0},
       timer:{deadline:0, tick:null},
@@ -340,7 +341,7 @@
       endTimer();
       clearIdle();
       UI.path.setAttribute('points','');
-      UI.ghost.setAttribute('points','');
+      resetDragPreview();
       state.doneIds = [];
       state.nextExpected = 1;
       state.N = diffToN(state.difficulty);
@@ -417,6 +418,7 @@
     function hit(id){
       state.doneIds.push(id);
       drawPath();
+      clearDragPreviewLine();
       const el = nodeById(id)._el; el.classList.add('pulse'); setTimeout(()=> el.classList.remove('pulse'), 300);
       beep(660 + id*30, 70);
       vib(15);
@@ -425,6 +427,7 @@
         win();
       }else{
         highlightCurrent(id);
+        if(state.dragging) setDragAnchorFromCurrent();
         armIdle();
       }
     }
@@ -445,20 +448,57 @@
       UI.path.setAttribute('points', pts);
     }
 
+    function clearDragPreviewLine(){ UI.ghost.setAttribute('points',''); }
+
+    function resetDragPreview(){ state.dragAnchor=null; clearDragPreviewLine(); }
+
+    function setDragAnchorFromCurrent(){
+      const anchorId = state.doneIds.length ? state.doneIds[state.doneIds.length-1] : state.nextExpected;
+      const anchor = nodeById(anchorId);
+      state.dragAnchor = anchor ? {x:anchor.x, y:anchor.y} : null;
+      return state.dragAnchor;
+    }
+
+    function updateDragPreview(e){
+      if(state.mode!=='drag') return null;
+      if(!state.dragAnchor){
+        clearDragPreviewLine();
+        return null;
+      }
+      const rect = UI.board.getBoundingClientRect();
+      const pos = {x:e.clientX - rect.left, y:e.clientY - rect.top};
+      UI.ghost.setAttribute('points', `${state.dragAnchor.x},${state.dragAnchor.y} ${pos.x},${pos.y}`);
+      return pos;
+    }
+
     // ===== Drag mode / magnet =====
     UI.board.addEventListener('pointerdown', (e)=>{
       if(state.mode!=='drag') return;
       if(e.pointerType==='mouse' && e.button!==0) return;
       state.dragging = true; UI.board.setPointerCapture?.(e.pointerId);
+      setDragAnchorFromCurrent();
+      updateDragPreview(e);
       armIdle();
       checkMagnet(e);
     });
     UI.board.addEventListener('pointermove', (e)=>{
       if(state.mode!=='drag' || !state.dragging) return;
+      updateDragPreview(e);
       checkMagnet(e);
     });
-    UI.board.addEventListener('pointerup', ()=>{
-      if(state.dragging) state.dragging=false;
+    UI.board.addEventListener('pointerup', (e)=>{
+      if(state.dragging){
+        state.dragging=false;
+        UI.board.releasePointerCapture?.(e.pointerId);
+      }
+      resetDragPreview();
+    });
+    UI.board.addEventListener('pointercancel', (e)=>{
+      if(state.dragging){
+        state.dragging=false;
+        UI.board.releasePointerCapture?.(e.pointerId);
+      }
+      resetDragPreview();
     });
 
     function checkMagnet(e){
