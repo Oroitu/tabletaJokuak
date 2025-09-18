@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Oruga · Juego infantil accesible</title>
+  <style>
+    :root{
+      --bg: #0f172a;          /* slate-900 */
+      --panel: #111827cc;     /* gray-900/80 */
+      --ink: #e5e7eb;         /* gray-200 */
+      --muted:#94a3b8;        /* slate-400 */
+      --accent:#22d3ee;       /* cyan-400 */
+      --accent-2:#a78bfa;     /* violet-400 */
+      --good:#34d399;         /* emerald-400 */
+      --bad:#f87171;          /* red-400 */
+      --node:#1f2937;         /* gray-800 */
+      --node-ring:#64748b;    /* slate-500 */
+      --shadow: 0 10px 20px rgba(0,0,0,.35), 0 6px 6px rgba(0,0,0,.28);
+    }
+    *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+    html,body{height:100%}
+    body{margin:0;background:radial-gradient(1200px 700px at 10% -20%, #1e293b 0%, #0b1325 60%, #060914 100%);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+
+    /* ====== Top bar ====== */
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border-bottom:1px solid #1f2937;background:linear-gradient(#0b1222dd,#0b1222bb);backdrop-filter:saturate(1.2) blur(6px);position:sticky;top:0;z-index:5}
+    .brand{font-weight:800;letter-spacing:.2px;display:flex;align-items:center;gap:.5ch;user-select:none}
+    .brand .bug{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#0ea5a4;color:#001013;box-shadow:inset 0 -2px 8px #0005,var(--shadow);font-size:16px}
+    .brand .text{font-size:18px}
+
+    .kid-controls{display:grid;grid-template-columns:repeat(3,auto);gap:10px;align-items:center}
+    .kid-controls button{appearance:none;border:0;background:#0b1222;box-shadow:var(--shadow);color:var(--ink);font-size:20px;padding:12px 14px;border-radius:16px;min-width:56px;min-height:48px;cursor:pointer;transition:transform .08s ease, background .2s}
+    .kid-controls button:active{transform:scale(.97)}
+    .kid-controls button:focus-visible{outline:2px solid var(--accent)}
+
+    #btn-reset{background:#0b1222}
+
+    .hint{font-size:12px;color:var(--muted);margin-top:2px}
+
+    /* ====== Status bar ====== */
+    #statusbar{height:6px;background:#0b1222;margin:0 10px;border-radius:999px;overflow:hidden;box-shadow:inset 0 0 0 1px #0f172a}
+    #timerbar{height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .2s linear}
+
+    /* ====== Board ====== */
+    #boardWrap{display:grid;place-items:center;padding:12px}
+    #board{position:relative;width:min(94vw,680px);height:min(120vw,70vh);border-radius:22px;background:radial-gradient(320px 260px at 70% 20%, #0b1427, #0b1222 60%);box-shadow:var(--shadow);touch-action:none;overflow:hidden}
+    svg#wires{position:absolute;inset:0;pointer-events:none}
+    #path{fill:none;stroke:var(--good);stroke-width:6;stroke-linejoin:round;stroke-linecap:round;filter:drop-shadow(0 1px 2px #0008)}
+    #ghost{fill:none;stroke-dasharray:8 10;stroke:var(--accent);stroke-width:4;opacity:.4}
+
+    .node{position:absolute;display:grid;place-items:center;width:56px;height:56px;border-radius:999px;background:radial-gradient(circle at 30% 25%, #253049, #0e172a);border:2px solid var(--node-ring);color:#e2e8f0;font-weight:800;letter-spacing:.5px;text-shadow:0 1px 0 #0006;user-select:none;box-shadow:var(--shadow)}
+    .node[data-state="next"]{border-color:transparent;box-shadow:0 0 0 4px #0008, 0 0 0 8px rgba(34,211,238,.5), 0 0 24px 8px rgba(167,139,250,.35)}
+    .node[data-state="next"]::after{content:"";position:absolute;inset:-10px;border-radius:inherit;border:3px dashed rgba(34,211,238,.5);animation:spin 3.2s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .node.done{background:radial-gradient(circle at 30% 25%, #0a1f1a, #062315);border-color:#065f46}
+    .node.done::after{content:"";position:absolute;inset:4px;border-radius:inherit;border:3px solid rgba(52,211,153,.5)}
+
+    .pulse{animation:pulse .6s ease}
+    @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+
+    /* ====== Adult panel (long press on logo) ====== */
+    .sheet{position:fixed;inset:0;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:10}
+    .sheet[open]{display:flex}
+    .panel{width:min(680px,96vw);background:var(--panel);border:1px solid #1f2937;border-bottom-left-radius:0;border-bottom-right-radius:0;border-radius:16px 16px 0 0;box-shadow:var(--shadow);padding:14px}
+    .panel h3{margin:0 0 8px 0;font-size:16px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .switch{display:inline-flex;align-items:center;gap:10px;padding:8px 10px;background:#0b1222;border-radius:12px}
+    .switch input{width:22px;height:22px}
+    .select{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;background:#0b1222;border-radius:12px}
+    .ghost-btn{margin-left:auto;background:#0b1222;border:0;padding:8px 12px;border-radius:10px;color:var(--ink)}
+
+    /* ====== Screen reader only ====== */
+    .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+    /* ====== Win sparkles ====== */
+    .spark{position:absolute;pointer-events:none;width:10px;height:10px;border-radius:50%;background:radial-gradient(#fff,#fff0);filter:drop-shadow(0 0 6px #fff);animation:pop .8s ease forwards}
+    @keyframes pop{0%{transform:translate(0,0) scale(.3);opacity:.9}70%{opacity:.95}100%{transform:translate(var(--dx),var(--dy)) scale(1.5);opacity:0}}
+
+    @media (min-width:800px){
+      .kid-controls button{min-height:52px;font-size:22px}
+      .node{width:62px;height:62px}
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" id="brand" aria-label="Mantén pulsado para abrir ajustes de adulto" title="Mantén pulsado para abrir ajustes de adulto">
+      <span class="bug" aria-hidden>🐛</span>
+      <span class="text">Oruga</span>
+    </div>
+    <div class="kid-controls" aria-label="Controles principales">
+      <button id="btn-diff" aria-label="Cambiar dificultad" title="Dificultad">⭐</button>
+      <button id="btn-mode" aria-label="Cambiar modo" title="Modo">☝️</button>
+      <button id="btn-reset" aria-label="Reiniciar" title="Reiniciar">↻</button>
+    </div>
+  </header>
+
+  <div id="statusbar" aria-hidden>
+    <div id="timerbar" hidden></div>
+  </div>
+
+  <main id="boardWrap">
+    <div id="board" role="application" aria-label="Tablero del juego">
+      <svg id="wires" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <polyline id="ghost" points="" />
+        <polyline id="path" points="" />
+      </svg>
+    </div>
+  </main>
+
+  <div id="live" class="sr" aria-live="polite"></div>
+
+  <!-- Adult settings sheet -->
+  <div class="sheet" id="sheet" aria-modal="true" role="dialog" aria-label="Ajustes de adulto">
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+        <h3>Ajustes</h3>
+        <span class="hint">Solo adulto</span>
+        <button class="ghost-btn" id="closeSheet" aria-label="Cerrar">Cerrar</button>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <label class="switch"><input type="checkbox" id="toggleSound" checked> Sonido</label>
+        <label class="switch"><input type="checkbox" id="toggleVib" checked> Vibración</label>
+        <label class="select"> Temporizador
+          <select id="timerSel">
+            <option value="0">Sin tiempo</option>
+            <option value="30">30 s</option>
+            <option value="60">60 s</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <button class="ghost-btn" id="resetScores">Borrar mejores tiempos</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  ;(()=>{
+    const UI = {
+      board:document.getElementById('board'),
+      wires:document.getElementById('wires'),
+      path:document.getElementById('path'),
+      ghost:document.getElementById('ghost'),
+      live:document.getElementById('live'),
+      btnDiff:document.getElementById('btn-diff'),
+      btnMode:document.getElementById('btn-mode'),
+      btnReset:document.getElementById('btn-reset'),
+      brand:document.getElementById('brand'),
+      sheet:document.getElementById('sheet'),
+      closeSheet:document.getElementById('closeSheet'),
+      toggleSound:document.getElementById('toggleSound'),
+      toggleVib:document.getElementById('toggleVib'),
+      timerSel:document.getElementById('timerSel'),
+      timerbar:document.getElementById('timerbar'),
+      resetScores:document.getElementById('resetScores'),
+    };
+
+    const diffLevels = ['facil','media','dificil'];
+    const diffStars = {facil:'⭐', media:'⭐⭐', dificil:'⭐⭐⭐'};
+
+    const state = {
+      mode:'tap',
+      difficulty:'facil',
+      N:5,
+      nodes:[],           // {id,x,y,_el}
+      nextExpected:1,
+      doneIds:[],
+      dragging:false,
+      idleTimer:null,
+      prefs:{sound:true,vib:true,timer:0},
+      timer:{deadline:0, tick:null},
+      firstDemo:true,
+    };
+
+    // ===== Storage =====
+    const LS_KEY = 'oruga.prefs.v1';
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw){
+        const p = JSON.parse(raw);
+        if(typeof p.sound==='boolean') state.prefs.sound = p.sound;
+        if(typeof p.vib==='boolean') state.prefs.vib = p.vib;
+        if(Number.isFinite(p.timer)) state.prefs.timer = p.timer;
+        if(['tap','drag'].includes(p.mode)) state.mode = p.mode;
+        if(diffLevels.includes(p.difficulty)) state.difficulty = p.difficulty;
+      }
+    }catch{}
+
+    function savePrefs(){
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        sound:state.prefs.sound,
+        vib:state.prefs.vib,
+        timer:state.prefs.timer,
+        mode:state.mode,
+        difficulty:state.difficulty,
+      }));
+    }
+
+    // ===== Utilities =====
+    const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+    const dist=(a,b)=>Math.hypot(a.x-b.x, a.y-b.y);
+
+    // ===== Audio & haptics =====
+    let AC=null, masterGain=null;
+    function ensureAC(){
+      if(!AC){
+        AC = new (window.AudioContext||window.webkitAudioContext)();
+        masterGain = AC.createGain();
+        masterGain.gain.value = .06;
+        masterGain.connect(AC.destination);
+      }
+    }
+    function beep(freq=880, dur=100, vol=1){
+      if(!state.prefs.sound) return;
+      ensureAC();
+      const o = AC.createOscillator();
+      const g = AC.createGain();
+      g.gain.value = (vol||1) * masterGain.gain.value;
+      o.frequency.value = freq;
+      o.type='sine';
+      o.connect(g);g.connect(masterGain);
+      const t = AC.currentTime;
+      o.start(t);o.stop(t+dur/1000);
+    }
+    function melody(seq){ // [[freq,dur,wait,vol],...]
+      if(!state.prefs.sound) return;
+      ensureAC();
+      let t = AC.currentTime;
+      for(const [f,d,w=0,v=1] of seq){
+        const o = AC.createOscillator();
+        const g = AC.createGain();
+        g.gain.value = (v||1) * masterGain.gain.value;
+        o.frequency.value=f;o.type='sine';
+        o.connect(g);g.connect(masterGain);
+        o.start(t);o.stop(t+d/1000);
+        t += (w||d)/1000;
+      }
+    }
+    const vib = ms => { if(state.prefs.vib && navigator.vibrate) navigator.vibrate(ms) }
+
+    // ===== Speech / live region =====
+    function speak(msg, voice=true){
+      UI.live.textContent = msg;
+      if(voice && 'speechSynthesis' in window){
+        try{
+          const u = new SpeechSynthesisUtterance(msg);
+          u.lang = 'es-ES';
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(u);
+        }catch{}
+      }
+    }
+
+    // ===== Difficulty & Mode =====
+    function diffToN(d){ return d==='facil'?5: d==='media'?8:12 }
+    function updateDiffUI(){ UI.btnDiff.textContent = diffStars[state.difficulty] }
+    function updateModeUI(){ UI.btnMode.textContent = state.mode==='tap'?'☝️':'✍️' }
+
+    UI.btnDiff.addEventListener('click', ()=>{
+      const i = diffLevels.indexOf(state.difficulty);
+      state.difficulty = diffLevels[(i+1)%diffLevels.length];
+      state.N = diffToN(state.difficulty);
+      updateDiffUI();
+      speak(state.difficulty==='facil'?'Fácil':state.difficulty==='media'?'Medio':'Difícil', true);
+      savePrefs();
+      newBoard(true);
+    });
+
+    UI.btnMode.addEventListener('click', ()=>{
+      state.mode = state.mode==='tap' ? 'drag' : 'tap';
+      updateModeUI();
+      speak(state.mode==='tap'?'Toques':'Arrastrar', true);
+      savePrefs();
+      newBoard(false);
+    });
+
+    // ===== Reset (long press) =====
+    let resetHold=null;
+    UI.btnReset.addEventListener('pointerdown', ()=>{
+      clearTimeout(resetHold);
+      resetHold = setTimeout(()=>{resetRun(); vib(40)}, 700);
+    });
+    UI.btnReset.addEventListener('pointerup', ()=> clearTimeout(resetHold));
+    UI.btnReset.addEventListener('pointerleave', ()=> clearTimeout(resetHold));
+
+    // ===== Adult sheet (long press on logo) =====
+    let brandHold=null;
+    UI.brand.addEventListener('pointerdown', ()=>{
+      clearTimeout(brandHold);
+      brandHold = setTimeout(()=> openSheet(), 1500);
+    });
+    ['pointerup','pointerleave'].forEach(ev=> UI.brand.addEventListener(ev, ()=> clearTimeout(brandHold)));
+    function openSheet(){ UI.sheet.setAttribute('open',''); }
+    function closeSheet(){ UI.sheet.removeAttribute('open'); }
+    UI.sheet.addEventListener('click', (e)=>{ if(e.target===UI.sheet) closeSheet() });
+    UI.closeSheet.addEventListener('click', closeSheet);
+
+    // Sheet controls
+    UI.toggleSound.checked = state.prefs.sound;
+    UI.toggleVib.checked = state.prefs.vib;
+    UI.timerSel.value = String(state.prefs.timer||0);
+    UI.toggleSound.addEventListener('change',()=>{state.prefs.sound = UI.toggleSound.checked; savePrefs(); if(state.prefs.sound) beep(1320,60)});
+    UI.toggleVib.addEventListener('change',()=>{state.prefs.vib = UI.toggleVib.checked; savePrefs(); vib(20)});
+    UI.timerSel.addEventListener('change',()=>{state.prefs.timer = +UI.timerSel.value; savePrefs(); startTimerIfNeeded()});
+    UI.resetScores.addEventListener('click',()=>{ localStorage.removeItem('oruga.bestTimes'); speak('Récords borrados', false) });
+
+    // ===== Board & Game =====
+    const MAGNET = 44; // px radius to accept next node in drag
+
+    function sizeBoardSVG(){
+      const r = UI.board.getBoundingClientRect();
+      UI.wires.setAttribute('viewBox', `0 0 ${r.width} ${r.height}`);
+    }
+
+    function newBoard(full=true){
+      endTimer();
+      clearIdle();
+      UI.path.setAttribute('points','');
+      UI.ghost.setAttribute('points','');
+      state.doneIds = [];
+      state.nextExpected = 1;
+      state.N = diffToN(state.difficulty);
+      updateDiffUI();
+      updateModeUI();
+      // Remove old nodes
+      for(const n of state.nodes){ n._el?.remove() }
+      state.nodes = [];
+      // Place nodes
+      placeNodes(state.N);
+      markNext(1);
+      if(full) startTimerIfNeeded();
+      armIdle();
+      if(state.firstDemo){ demo(); state.firstDemo=false; }
+      speak('Listo', false);
+    }
+
+    function placeNodes(N){
+      sizeBoardSVG();
+      const r = UI.board.getBoundingClientRect();
+      const pad = 40, minD = 84, tries=2000;
+      const spots=[];
+      for(let id=1; id<=N; id++){
+        let ok=false, x=0,y=0, k=0;
+        while(!ok && k++<tries){
+          x = Math.random()*(r.width-pad*2)+pad;
+          y = Math.random()*(r.height-pad*2)+pad;
+          ok = spots.every(s=> Math.hypot(s.x-x, s.y-y) > minD);
+        }
+        spots.push({x,y,id});
+      }
+      // Slight ordering clarity: sort by id for label but positions are random already
+      for(const s of spots){
+        const el = document.createElement('button');
+        el.className = 'node';
+        el.style.left = (s.x-28)+'px';
+        el.style.top = (s.y-28)+'px';
+        el.textContent = s.id;
+        el.setAttribute('aria-label', 'Número '+s.id);
+        el.setAttribute('data-id', s.id);
+        el.addEventListener('click', onNodeTap);
+        el.addEventListener('dblclick', tryUndo);
+        // custom double-tap for touch
+        let lastTap=0; el.addEventListener('pointerup', ()=>{ const t=Date.now(); if(t-lastTap<300) tryUndo(); lastTap=t; })
+        UI.board.appendChild(el);
+        state.nodes.push({id:s.id,x:s.x,y:s.y,_el:el});
+      }
+    }
+
+    function nodeById(id){ return state.nodes.find(n=>n.id===id) }
+
+    function markNext(id){
+      for(const n of state.nodes){ n._el.classList.remove('done'); n._el.removeAttribute('data-state') }
+      for(const did of state.doneIds){ nodeById(did)._el.classList.add('done') }
+      const next = nodeById(id);
+      if(next) next._el.setAttribute('data-state','next');
+    }
+
+    function onNodeTap(e){
+      if(state.mode!=='tap') return; // ignore in drag
+      const id = +e.currentTarget.getAttribute('data-id');
+      if(id === state.nextExpected){
+        hit(id);
+      }else{
+        wrongTouch();
+      }
+    }
+
+    function wrongTouch(){
+      beep(220,90,.8); vib(60);
+    }
+
+    function hit(id){
+      state.doneIds.push(id);
+      drawPath();
+      const el = nodeById(id)._el; el.classList.add('pulse'); setTimeout(()=> el.classList.remove('pulse'), 300);
+      beep(660 + id*30, 70);
+      vib(15);
+      state.nextExpected++;
+      if(state.nextExpected>state.N){
+        win();
+      }else{
+        markNext(state.nextExpected);
+        armIdle();
+      }
+    }
+
+    function tryUndo(){
+      if(state.doneIds.length===0) return;
+      const last = state.doneIds[state.doneIds.length-1];
+      // Allow undo only on last done
+      state.doneIds.pop();
+      state.nextExpected = last;
+      drawPath();
+      markNext(state.nextExpected);
+      beep(330,70); vib(20);
+    }
+
+    function drawPath(){
+      const pts = state.doneIds.map(id=>{ const n = nodeById(id); return `${n.x},${n.y}` }).join(' ');
+      UI.path.setAttribute('points', pts);
+    }
+
+    // ===== Drag mode / magnet =====
+    UI.board.addEventListener('pointerdown', (e)=>{
+      if(e.pointerType==='mouse' && e.button!==0) return;
+      state.dragging = true; UI.board.setPointerCapture?.(e.pointerId);
+      armIdle();
+      checkMagnet(e);
+    });
+    UI.board.addEventListener('pointermove', (e)=>{
+      if(!state.dragging) return; checkMagnet(e);
+    });
+    UI.board.addEventListener('pointerup', ()=>{ state.dragging=false });
+
+    function checkMagnet(e){
+      if(state.mode!=='drag') return;
+      const rect = UI.board.getBoundingClientRect();
+      const px = e.clientX - rect.left, py = e.clientY - rect.top;
+      const next = nodeById(state.nextExpected);
+      if(!next) return;
+      if(Math.hypot(px-next.x, py-next.y) <= MAGNET){ hit(next.id) }
+    }
+
+    // ===== Idle hint =====
+    function clearIdle(){ clearTimeout(state.idleTimer); }
+    function armIdle(){ clearIdle(); state.idleTimer = setTimeout(()=> hintNext(), 5000) }
+    function hintNext(){ const n = nodeById(state.nextExpected); if(!n) return; n._el.classList.add('pulse'); setTimeout(()=> n._el.classList.remove('pulse'), 600); beep(880,70); }
+
+    // ===== Demo =====
+    function demo(){
+      const count = Math.min(3, state.N);
+      const pts = [];
+      for(let i=1;i<=count;i++){ const n=nodeById(i); pts.push(`${n.x},${n.y}`); setTimeout(()=> pulse(n._el), 250*i) }
+      UI.ghost.setAttribute('points', pts.join(' '));
+      setTimeout(()=> UI.ghost.setAttribute('points',''), 3000);
+      function pulse(el){ el.classList.add('pulse'); setTimeout(()=> el.classList.remove('pulse'), 600) }
+    }
+
+    // ===== Timer =====
+    function startTimerIfNeeded(){
+      endTimer();
+      if(!state.prefs.timer) { UI.timerbar.hidden=true; return; }
+      const dur = state.prefs.timer; // seconds
+      const now = performance.now();
+      state.timer.deadline = now + dur*1000;
+      UI.timerbar.hidden=false;
+      tickTimer();
+    }
+    function tickTimer(){
+      cancelAnimationFrame(state.timer.tick);
+      const now = performance.now();
+      const left = clamp((state.timer.deadline-now)/1000,0,state.prefs.timer||1);
+      const pct = 100 - (left/(state.prefs.timer||1))*100;
+      UI.timerbar.style.width = pct.toFixed(2)+'%';
+      if(left<=0){ timeUp(); return; }
+      state.timer.tick = requestAnimationFrame(tickTimer);
+    }
+    function timeUp(){
+      UI.timerbar.style.width = '100%';
+      speak('Se acabó el tiempo');
+      melody([[196,200],[0,60],[164,260]]); vib([40,100,80]);
+      // Soft reset of the round state (keep same board)
+      state.doneIds=[]; state.nextExpected=1; drawPath(); markNext(1);
+    }
+    function endTimer(){ cancelAnimationFrame(state.timer.tick); UI.timerbar.hidden=true; }
+
+    // ===== Win =====
+    function win(){
+      speak('¡Bien hecho!');
+      melody([[660,120],[880,120],[1175,140]]);
+      vib([30,50,30]);
+      confetti();
+      endTimer();
+      // Auto new board after a short pause
+      setTimeout(()=> newBoard(true), 1200);
+    }
+
+    function confetti(){
+      const r = UI.board.getBoundingClientRect();
+      for(let i=0;i<28;i++){
+        const s = document.createElement('i'); s.className='spark';
+        s.style.left = (r.width/2)+'px'; s.style.top = (r.height/2)+'px';
+        const dx = (Math.random()*2-1)*(r.width/2) + 'px';
+        const dy = (Math.random()*2-1)*(r.height/2) + 'px';
+        s.style.setProperty('--dx', dx); s.style.setProperty('--dy', dy);
+        UI.board.appendChild(s); setTimeout(()=> s.remove(), 900);
+      }
+    }
+
+    // ===== Reset run =====
+    function resetRun(){ newBoard(true); }
+
+    // ===== Boot =====
+    function boot(){
+      state.N = diffToN(state.difficulty);
+      updateDiffUI(); updateModeUI();
+      UI.toggleSound.checked = state.prefs.sound;
+      UI.toggleVib.checked = state.prefs.vib;
+      UI.timerSel.value = String(state.prefs.timer||0);
+      newBoard(true);
+      // Resize observer to keep SVG in sync
+      new ResizeObserver(sizeBoardSVG).observe(UI.board);
+    }
+
+    boot();
+  })();
+  </script>
+</body>
+</html>
